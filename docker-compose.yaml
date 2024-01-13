@@ -4,29 +4,35 @@
 
 version: '3'
 services:
- reverse_proxy:
-  image: nginx:1.23.3-alpine
-  volumes:
-   - ./includes:/etc/nginx/includes
-   - ./conf.d:/etc/nginx/conf.d
-   - ./data/certbot/conf:/etc/letsencrypt:ro
-   - ./data/certbot/www:/var/www/certbot:ro
-   - ../authelia/config/nginx:/etc/nginx/includes
-   - ../authelia/config/nginx/:/etc/nginx/config.d
-  ports:
-   - "80:80"
-   - "443:443"
-  networks:
-   - authelia-net
-  restart:
-    always
 
  certbot:
   image: certbot/certbot:latest
   volumes:
    - ./data/certbot/conf:/etc/letsencrypt:rw
    - ./data/certbot/www:/var/www/certbot:rw
+   - ./data/certbot/logs/:/var/log/letsencrypt
+  entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 30d & wait $${!}; done;'"
+
+
+ reverse_proxy:
+  image: nginx:1.25.3-alpine
+  volumes:
+   - ./includes:/etc/nginx/includes
+   - ./conf.d:/etc/nginx/conf.d
+   - ./public_html:/usr/share/nginx/html
+   - ./dhparam:/etc/nginx/dhparam
+   - ./data/certbot/conf:/etc/letsencrypt:ro
+   - ./data/certbot/www:/var/www/certbot:ro
+  ports:
+   - "80:80"
+   - "443:443"
+  networks:
+   - main-net
+  restart:
+    always
+  depends_on:
+    - certbot
 
 networks:
-  authelia-net:
+  main-net:
     external: true
